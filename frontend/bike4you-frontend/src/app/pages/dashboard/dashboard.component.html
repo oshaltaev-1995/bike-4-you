@@ -1,0 +1,12 @@
+<h2>Available Equipment</h2>
+
+<div *ngFor="let item of equipment">
+  <div>
+    <strong>{{ item.type }}</strong> — {{ item.location }}
+    <button 
+      (click)="rentItem(item.id)" 
+      [disabled]="item.status !== 'available'">
+      Rent
+    </button>
+  </div>
+</div>

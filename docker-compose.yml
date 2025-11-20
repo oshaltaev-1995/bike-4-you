@@ -1,0 +1,22 @@
+version: "3.9"
+services:
+  auth-service:
+    build: ./auth-service
+    ports:
+      - "8001:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./bike4you.db
+
+  inventory-service:
+    build: ./inventory-service
+    ports:
+      - "8002:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./bike4you.db
+
+  rental-service:
+    build: ./rental-service
+    ports:
+      - "8003:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./bike4you.db

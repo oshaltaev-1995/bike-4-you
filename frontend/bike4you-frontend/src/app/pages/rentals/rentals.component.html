@@ -1,0 +1,8 @@
+<h2>Your Rental History</h2>
+
+<div *ngFor="let r of rentals">
+  <div>
+    Equipment ID: {{ r.equipment_id }} — Status: {{ r.status }} — Duration: {{ r.total_minutes }} minutes
+    <button *ngIf="r.status==='active'" (click)="returnRental(r.id)">Return</button>
+  </div>
+</div>

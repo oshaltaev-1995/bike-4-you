@@ -1,0 +1,41 @@
+<div class="auth-container">
+  <h2 *ngIf="mode === 'login'">Login</h2>
+  <h2 *ngIf="mode === 'register'">Register</h2>
+
+  <form (ngSubmit)="mode === 'login' ? onLogin() : onRegister()">
+    <div *ngIf="mode === 'register'" class="form-group">
+      <label for="name">Name</label>
+      <input id="name" [(ngModel)]="name" name="name" required />
+    </div>
+
+    <div class="form-group">
+      <label for="email">KAMK email</label>
+      <input
+        id="email"
+        [(ngModel)]="email"
+        name="email"
+        type="email"
+        required
+      />
+    </div>
+
+    <button type="submit" class="btn-main">
+      {{ mode === 'login' ? 'Login' : 'Register' }}
+    </button>
+  </form>
+
+  <p *ngIf="error" class="error">
+    {{ error }}
+  </p>
+
+  <p class="switch">
+    <span *ngIf="mode === 'login'">
+      No account yet?
+      <a (click)="switchToRegister()">Register</a>
+    </span>
+    <span *ngIf="mode === 'register'">
+      Already registered?
+      <a (click)="switchToLogin()">Login</a>
+    </span>
+  </p>
+</div>

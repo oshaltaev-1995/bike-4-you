@@ -1,41 +1,46 @@
-<div class="auth-container">
-  <h2 *ngIf="mode === 'login'">Login</h2>
-  <h2 *ngIf="mode === 'register'">Register</h2>
+<div class="login-container">
+  <div class="login-card">
+    <h1>Bike4You</h1>
 
-  <form (ngSubmit)="mode === 'login' ? onLogin() : onRegister()">
-    <div *ngIf="mode === 'register'" class="form-group">
-      <label for="name">Name</label>
-      <input id="name" [(ngModel)]="name" name="name" required />
+    <div class="mode-switch">
+      <button [class.active]="mode === 'login'" (click)="switchToLogin()">
+        Login
+      </button>
+      <button [class.active]="mode === 'register'" (click)="switchToRegister()">
+        Register
+      </button>
     </div>
 
-    <div class="form-group">
-      <label for="email">KAMK email</label>
-      <input
-        id="email"
-        [(ngModel)]="email"
-        name="email"
-        type="email"
-        required
-      />
+    <div *ngIf="error" class="error-box">
+      {{ error }}
     </div>
 
-    <button type="submit" class="btn-main">
-      {{ mode === 'login' ? 'Login' : 'Register' }}
-    </button>
-  </form>
+    <form (ngSubmit)="mode === 'login' ? onLogin() : onRegister()">
+      <div *ngIf="mode === 'register'" class="form-group">
+        <label>Name</label>
+        <input type="text" [(ngModel)]="name" name="name" required />
+      </div>
+      
+      <div class="form-group">
+        <label>Email (&#64;kamk.fi)</label>
+        <input
+          type="email"
+          [(ngModel)]="email"
+          name="email"
+          required
+        />
+        <p class="validation-error" *ngIf="email && !isEmailValid()">
+          Email must end with <strong>&#64;kamk.fi</strong>
+        </p>
+      </div>
 
-  <p *ngIf="error" class="error">
-    {{ error }}
-  </p>
-
-  <p class="switch">
-    <span *ngIf="mode === 'login'">
-      No account yet?
-      <a (click)="switchToRegister()">Register</a>
-    </span>
-    <span *ngIf="mode === 'register'">
-      Already registered?
-      <a (click)="switchToLogin()">Login</a>
-    </span>
-  </p>
+      <button
+        class="btn-primary"
+        type="submit"
+        [disabled]="!isEmailValid()"
+      >
+        {{ mode === 'login' ? 'Login' : 'Register' }}
+      </button>
+    </form>
+  </div>
 </div>

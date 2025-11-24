@@ -1,0 +1,19 @@
+<nav class="navbar">
+  <div class="nav-left">
+    <a routerLink="/dashboard" class="logo">Bike4You</a>
+
+    <a routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
+    <a routerLink="/rentals" routerLinkActive="active">Rentals</a>
+  </div>
+
+  <div class="nav-right" *ngIf="user">
+    <span class="user-name">{{ user.name }}</span>
+
+    <!-- REFRESH BUTTON -->
+    <button class="btn-refresh" (click)="refresh()" [disabled]="loading">
+      🔄
+    </button>
+
+    <button class="btn-logout" (click)="logout()">Logout</button>
+  </div>
+</nav>

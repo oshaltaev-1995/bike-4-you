@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { environment } from '../../environments/environment';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface User {
   id: number;
@@ -14,27 +14,40 @@ export interface User {
 })
 export class AuthService {
   private apiUrl = environment.authApi;
+  private storageKey = 'user';
+  private currentUser: User | null = null;
 
-  constructor(private http: HttpClient) {}
-
-  register(name: string, email: string): Observable<User> {
-    return this.http.post<User>(`${this.apiUrl}/auth/register`, { name, email });
+  constructor(private http: HttpClient) {
+    const raw = localStorage.getItem(this.storageKey);
+    if (raw) {
+      try {
+        this.currentUser = JSON.parse(raw);
+      } catch {
+        this.currentUser = null;
+        localStorage.removeItem(this.storageKey);
+      }
+    }
   }
 
   login(email: string): Observable<User> {
     return this.http.post<User>(`${this.apiUrl}/auth/login`, { email });
   }
 
+  register(name: string, email: string): Observable<User> {
+    return this.http.post<User>(`${this.apiUrl}/auth/register`, { name, email });
+  }
+
   saveUser(user: User) {
-    localStorage.setItem('bike4you_user', JSON.stringify(user));
+    this.currentUser = user;
+    localStorage.setItem(this.storageKey, JSON.stringify(user));
   }
 
   getUser(): User | null {
-    const data = localStorage.getItem('bike4you_user');
-    return data ? JSON.parse(data) : null;
+    return this.currentUser;
   }
 
   logout() {
-    localStorage.removeItem('bike4you_user');
+    this.currentUser = null;
+    localStorage.removeItem(this.storageKey);
   }
 }

@@ -55,3 +55,16 @@ def login(data: schemas.LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not registered")
 
     return user
+
+@app.get("/auth/me", response_model=schemas.UserOut)
+def get_me(email: str, db: Session = Depends(get_db)):
+    """
+    Checks the existence of a user in the DB by email.
+    Frontend will call this method on startup.
+    """
+    user = db.query(models.User).filter(models.User.email == email).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return user

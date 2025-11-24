@@ -1,6 +1,6 @@
-from typing import List
+from typing import List, Optional
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -12,10 +12,7 @@ from deps import get_db
 # Создание таблиц
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(
-    title="Bike4You InventoryService",
-    version="1.0.0",
-)
+app = FastAPI(title="Bike4You InventoryService", version="1.0.0")
 
 origins = [
     "http://localhost:4200",
@@ -32,8 +29,20 @@ app.add_middleware(
 
 
 @app.get("/equipment", response_model=List[schemas.EquipmentOut])
-def list_equipment(db: Session = Depends(get_db)):
-    items = db.query(models.Equipment).all()
+def list_equipment(
+    status: Optional[str] = Query(default=None),
+    type_: Optional[str] = Query(default=None, alias="type"),
+    db: Session = Depends(get_db),
+):
+    query = db.query(models.Equipment)
+
+    if status is not None:
+        query = query.filter(models.Equipment.status == status)
+
+    if type_ is not None:
+        query = query.filter(models.Equipment.type == type_)
+
+    items = query.all()
     return items
 
 
@@ -43,6 +52,8 @@ def add_equipment(data: schemas.EquipmentCreate, db: Session = Depends(get_db)):
         type=data.type,
         status=data.status,
         location=data.location,
+        image_url=data.image_url,
+        hourly_rate=data.hourly_rate,
     )
     db.add(item)
     db.commit()
@@ -60,7 +71,24 @@ def update_equipment(update: schemas.EquipmentUpdate, db: Session = Depends(get_
         item.status = update.status
     if update.location is not None:
         item.location = update.location
+    if update.image_url is not None:
+        item.image_url = update.image_url
+    if update.hourly_rate is not None:
+        item.hourly_rate = update.hourly_rate
 
     db.commit()
     db.refresh(item)
+    return item
+
+
+@app.get("/equipment/{equipment_id}", response_model=schemas.EquipmentOut)
+def get_equipment_by_id(
+    equipment_id: int,
+    db: Session = Depends(get_db)
+):
+    item = db.query(models.Equipment).filter(models.Equipment.id == equipment_id).first()
+
+    if not item:
+        raise HTTPException(status_code=404, detail="Equipment not found")
+
     return item

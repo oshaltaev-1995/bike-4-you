@@ -1,0 +1,53 @@
+.navbar {
+  width: 100%;
+  background: #1976d2;
+  padding: 12px 24px;
+  color: white;
+
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  box-sizing: border-box;
+}
+
+.nav-left a {
+  margin-right: 20px;
+  color: white;
+  text-decoration: none;
+}
+
+.logo {
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  .user-name {
+    font-weight: 600;
+    margin-right: 6px;
+  }
+
+  .btn-refresh {
+    background: #ffffff22;
+    border: none;
+    border-radius: 6px;
+    font-size: 18px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+
+  .btn-logout {
+    background: #d9534f;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+  }
+}

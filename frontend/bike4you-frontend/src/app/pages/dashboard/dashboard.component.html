@@ -1,12 +1,89 @@
-<h2>Available Equipment</h2>
+<app-navbar></app-navbar>
 
-<div *ngFor="let item of equipment">
-  <div>
-    <strong>{{ item.type }}</strong> — {{ item.location }}
-    <button 
-      (click)="rentItem(item.id)" 
-      [disabled]="item.status !== 'available'">
-      Rent
-    </button>
+<div class="dashboard-container">
+  <header class="dashboard-header">
+    <div>
+      <h1>Bike4You Dashboard</h1>
+      <p *ngIf="user" class="welcome">
+        Welcome, <span>{{ user.name }}</span> ({{ user.email }})
+      </p>
+    </div>
+  </header>
+
+  <section class="filters">
+    <div class="filter-group">
+      <label>Status</label>
+      <select [(ngModel)]="statusFilter" (change)="onChangeFilters()">
+        <option value="all">All</option>
+        <option value="available">Available</option>
+        <option value="rented">Rented</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label>Type</label>
+      <select [(ngModel)]="typeFilter" (change)="onChangeFilters()">
+        <option value="all">All</option>
+        <option value="bike">Bike</option>
+        <option value="scooter">Scooter</option>
+        <option value="ski">Ski</option>
+      </select>
+    </div>
+  </section>
+
+  <section class="status-bar">
+    <div *ngIf="loading" class="status loading">Loading equipment...</div>
+    <div *ngIf="error" class="status error">{{ error }}</div>
+  </section>
+
+  <div *ngIf="!loading && equipment.length === 0" class="empty-state">
+    <p>No equipment found.</p>
+    <p class="hint">Try adding items in the backend.</p>
   </div>
+
+  <section class="equipment-grid" *ngIf="equipment.length > 0">
+    <article class="equipment-card" *ngFor="let item of equipment">
+      
+      <img
+        *ngIf="item.image_url"
+        class="equipment-image"
+        [src]="item.image_url"
+        alt="{{ item.type }}"
+      />
+
+      <div class="equipment-main">
+        <h2 class="equipment-type">{{ item.type | titlecase }}</h2>
+        <p class="equipment-location">Location: {{ item.location }}</p>
+      </div>
+
+      <div class="equipment-meta">
+
+        <span
+          class="status-badge"
+          [class.available]="item.status === 'available'"
+          [class.rented]="item.status !== 'available'"
+        >
+          {{ item.status | titlecase }}
+        </span>
+
+        <button
+          class="btn-primary"
+          *ngIf="item.status === 'available'"
+          (click)="onRent(item)"
+          [disabled]="loading"
+        >
+          Rent
+        </button>
+
+        <button
+          class="btn-disabled"
+          *ngIf="item.status !== 'available'"
+          disabled
+        >
+          Rented
+        </button>
+
+      </div>
+    </article>
+  </section>
 </div>

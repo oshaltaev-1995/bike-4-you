@@ -1,61 +1,95 @@
-.auth-container {
-  width: 330px;
-  margin: 50px auto;
-  padding: 25px;
-  background: #ffffff;
-  border-radius: 10px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+.login-container {
+  min-height: 100vh;
   display: flex;
-  flex-direction: column;
-  gap: 15px;
+  justify-content: center;
+  align-items: center;
+  background: #e3f2fd;
 }
 
-h2 {
-  margin: 0 auto 10px;
-  font-size: 22px;
+.login-card {
+  background: #fff;
+  padding: 24px 28px;
+  border-radius: 12px;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+  width: 320px;
+
+  h1 {
+    text-align: center;
+    margin-bottom: 16px;
+    color: #1e88e5;
+  }
+}
+
+.mode-switch {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+
+  button {
+    flex: 1;
+    padding: 6px 0;
+    border-radius: 6px;
+    border: none;
+    background: #e0e0e0;
+    cursor: pointer;
+
+    &.active {
+      background: #1e88e5;
+      color: white;
+      font-weight: 600;
+    }
+  }
+}
+
+.error-box {
+  background: #ffdddd;
+  padding: 8px;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+  border-radius: 6px;
+  margin-bottom: 12px;
   font-weight: 600;
+  font-size: 14px;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  margin-bottom: 10px;
+
+  label {
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+
+  input {
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+  }
 }
 
-input {
-  padding: 10px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  font-size: 14px;
+.validation-error {
+  margin-top: 4px;
+  color: #d32f2f;
+  font-size: 12px;
 }
 
-.btn-main {
+.btn-primary {
   width: 100%;
-  padding: 10px;
-  background: #1976d2;
-  color: white;
-  font-weight: 600;
-  border: none;
+  padding: 8px 0;
   border-radius: 6px;
+  border: none;
+  background: #1e88e5;
+  color: white;
   cursor: pointer;
-}
+  font-size: 15px;
+  font-weight: 600;
+  margin-top: 6px;
 
-.btn-main:hover {
-  background: #0d5cad;
-}
-
-.error {
-  color: #d9534f;
-  font-size: 14px;
-  text-align: center;
-}
-
-.switch {
-  text-align: center;
-  font-size: 14px;
-}
-
-.switch a {
-  color: #1976d2;
-  cursor: pointer;
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
 }

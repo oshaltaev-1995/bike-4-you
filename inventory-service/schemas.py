@@ -1,26 +1,30 @@
+from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel
 
-
-class EquipmentCreate(BaseModel):
+class EquipmentBase(BaseModel):
     type: str
     status: str
     location: str
+    image_url: Optional[str] = None
+    hourly_rate: float  # ← Добавили
+
+
+class EquipmentCreate(EquipmentBase):
+    pass
 
 
 class EquipmentUpdate(BaseModel):
     id: int
     status: Optional[str] = None
     location: Optional[str] = None
+    image_url: Optional[str] = None
+    hourly_rate: Optional[float] = None  # ← Разрешаем обновлять тариф
 
 
-class EquipmentOut(BaseModel):
+class EquipmentOut(EquipmentBase):
     id: int
-    type: str
-    status: str
-    location: str
     created_at: datetime
 
     class Config:

@@ -1,8 +1,81 @@
-<h2>Your Rental History</h2>
+<app-navbar></app-navbar>
 
-<div *ngFor="let r of rentals">
-  <div>
-    Equipment ID: {{ r.equipment_id }} — Status: {{ r.status }} — Duration: {{ r.total_minutes }} minutes
-    <button *ngIf="r.status==='active'" (click)="returnRental(r.id)">Return</button>
+<div class="rentals-container">
+
+  <h1>My Rentals</h1>
+
+  <div class="tabs">
+    <button [class.active]="tab === 'active'" (click)="setTab('active')">
+      Active Rentals
+    </button>
+    <button [class.active]="tab === 'history'" (click)="setTab('history')">
+      History
+    </button>
   </div>
+
+  <div class="status" *ngIf="loading">Loading...</div>
+  <div class="status error" *ngIf="error">{{ error }}</div>
+
+  <!-- ACTIVE RENTALS -->
+  <div *ngIf="tab === 'active'">
+    <div *ngIf="activeRentals.length === 0 && !loading" class="empty">
+      No active rentals.
+    </div>
+
+    <div class="rental-card" *ngFor="let r of activeRentals">
+      <ng-container *ngIf="getEquipment(r) as eq">
+
+        <img
+          *ngIf="eq.image_url"
+          [src]="eq.image_url"
+          alt="{{ eq.type }}"
+          class="equip-img"
+        />
+
+        <div class="info">
+          <h2>{{ eq.type | titlecase }}</h2>
+          <p>Location: {{ eq.location }}</p>
+          <p>Rate: €{{ eq.hourly_rate }}/h</p>
+          <p>Start: {{ r.start_time | date: 'short' }}</p>
+        </div>
+
+        <div class="actions">
+          <button class="btn-return" (click)="returnRental(r.id)">
+            Return
+          </button>
+        </div>
+
+      </ng-container>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div *ngIf="tab === 'history'">
+    <div *ngIf="historyRentals.length === 0 && !loading" class="empty">
+      No history yet.
+    </div>
+
+    <div class="rental-card" *ngFor="let r of historyRentals">
+      <ng-container *ngIf="getEquipment(r) as eq">
+
+        <img
+          *ngIf="eq.image_url"
+          [src]="eq.image_url"
+          alt="{{ eq.type }}"
+          class="equip-img"
+        />
+
+        <div class="info">
+          <h2>{{ eq.type | titlecase }}</h2>
+          <p>Location: {{ eq.location }}</p>
+          <p>Rate: €{{ eq.hourly_rate }}/h</p>
+          <p>Start: {{ r.start_time | date: 'short' }}</p>
+          <p>End: {{ r.end_time | date: 'short' }}</p>
+          <p>Total: {{ r.total_minutes }} min → €{{ r.total_price }}</p>
+        </div>
+
+      </ng-container>
+    </div>
+  </div>
+
 </div>

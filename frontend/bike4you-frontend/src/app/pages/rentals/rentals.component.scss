@@ -1,0 +1,107 @@
+.rentals-container {
+  max-width: 900px;
+  margin: 20px auto;
+  padding: 0 20px;
+}
+
+h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: #1e88e5;
+}
+
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+
+  button {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: none;
+    background: #e0e0e0;
+    cursor: pointer;
+    font-size: 16px;
+
+    &.active {
+      background: #1e88e5;
+      color: white;
+      font-weight: 600;
+    }
+
+    &:hover {
+      background: #bdbdbd;
+    }
+  }
+}
+
+.status {
+  margin-bottom: 10px;
+  color: #555;
+
+  &.error {
+    color: #d32f2f;
+    font-weight: bold;
+  }
+}
+
+.empty {
+  margin-top: 20px;
+  text-align: center;
+  color: #555;
+  font-size: 16px;
+}
+
+.rental-card {
+  display: flex;
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  gap: 20px;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+
+  .equip-img {
+    width: 130px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 8px;
+  }
+
+  .info {
+    flex: 1;
+
+    h2 {
+      font-size: 20px;
+      margin: 0 0 6px;
+    }
+
+    p {
+      margin: 2px 0;
+      color: #444;
+      font-size: 15px;
+    }
+  }
+
+  .actions {
+    display: flex;
+    align-items: center;
+
+    .btn-return {
+      padding: 8px 16px;
+      background: #43a047;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: 0.2s;
+
+      &:hover {
+        background: #2e7d32;
+      }
+    }
+  }
+}

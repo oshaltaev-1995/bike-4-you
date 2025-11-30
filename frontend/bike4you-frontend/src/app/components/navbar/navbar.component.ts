@@ -18,21 +18,20 @@ export class NavbarComponent {
   user: User | null = null;
 
   constructor(
-    private authService: AuthService,
+    public auth: AuthService,
     private router: Router
   ) {}
 
   ngOnInit() {
-    this.user = this.authService.getUser();
+    this.user = this.auth.getUser();
   }
 
   logout() {
-    this.authService.logout();
+    this.auth.logout();
     this.router.navigate(['/']);
   }
 
   refresh() {
-    // Просто шлем событие наверх — Dashboard сам выполнит reload
     window.dispatchEvent(new CustomEvent('dashboard-refresh'));
   }
 }

@@ -4,12 +4,21 @@
 
     <a routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
     <a routerLink="/rentals" routerLinkActive="active">Rentals</a>
+
+    <!-- ADMIN PANEL BUTTON -->
+    <a 
+      *ngIf="auth.isAdmin()"
+      routerLink="/admin"
+      routerLinkActive="active"
+      class="admin-link"
+    >
+      Admin
+    </a>
   </div>
 
   <div class="nav-right" *ngIf="user">
     <span class="user-name">{{ user.name }}</span>
 
-    <!-- REFRESH BUTTON -->
     <button class="btn-refresh" (click)="refresh()" [disabled]="loading">
       🔄
     </button>

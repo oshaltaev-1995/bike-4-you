@@ -4,16 +4,18 @@ import os
 from typing import List, Optional
 
 import requests
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Header, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
+import jwt
 
 import models
 import schemas
 from database import Base, engine
 from deps import get_db
 
-# --- Создание таблиц ---
+# --- DB ---
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Bike4You RentalService", version="1.0.0")
@@ -32,51 +34,83 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- JWT CONFIG ---
+SECRET_KEY = "SUPER_SECRET_KEY_CHANGE_ME"
+ALGORITHM = "HS256"
+
+
+class TokenUser(BaseModel):
+    user_id: int
+    role: str
+
+
+def get_current_user(authorization: str = Header(...)) -> TokenUser:
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Invalid authorization header")
+
+    token = authorization.split(" ", 1)[1].strip()
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = payload.get("sub")
+    role = payload.get("role")
+    if user_id is None or role is None:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+
+    return TokenUser(user_id=int(user_id), role=role)
+
+
+def get_admin_user(current_user: TokenUser = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    return current_user
+
+
+# --- Inventory service URL ---
 INVENTORY_SERVICE_URL = os.getenv(
     "INVENTORY_SERVICE_URL",
-    "http://inventory-service:8000"  # в докере; локально через порт: http://localhost:8002
+    "http://inventory-service:8000"
 )
+
 
 # --- helpers ---
 
 def get_equipment_hourly_rate(equipment_id: int) -> float:
     url = f"{INVENTORY_SERVICE_URL}/equipment/{equipment_id}"
-    try:
-        resp = requests.get(url, timeout=3)
-        resp.raise_for_status()
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Failed to fetch equipment from inventory-service: {e}"
-        )
-
+    resp = requests.get(url, timeout=3)
+    if resp.status_code != 200:
+        raise HTTPException(502, "Failed to fetch equipment from inventory-service")
     data = resp.json()
-    hourly_rate = data.get("hourly_rate")
-    if hourly_rate is None:
-        raise HTTPException(
-            status_code=500,
-            detail="hourly_rate missing in inventory response"
-        )
-
-    return float(hourly_rate)
+    return float(data["hourly_rate"])
 
 
 def calculate_rental_price(start_time: datetime, end_time: datetime, hourly_rate: float):
-    if end_time < start_time:
-        raise ValueError("end_time cannot be earlier")
-
     delta = end_time - start_time
     minutes = max(1, math.ceil(delta.total_seconds() / 60))
     hours = max(1, math.ceil(minutes / 60))
     return minutes, hours * hourly_rate
 
 
-# --- endpoints ---
+# --- ENDPOINTS ---
+
 
 @app.post("/rentals/start", response_model=schemas.Rental, tags=["rentals"])
-def start_rental(rental_in: schemas.RentalCreate, db: Session = Depends(get_db)):
+def start_rental(
+    rental_in: schemas.RentalCreate,
+    db: Session = Depends(get_db),
+    current: TokenUser = Depends(get_current_user),
+):
+    """
+    user_id not taken from the body request.
+    Only from JWT.
+    """
     rental = models.Rental(
-        user_id=rental_in.user_id,
+        user_id=current.user_id,
         equipment_id=rental_in.equipment_id,
         start_time=datetime.utcnow(),
         status="active",
@@ -85,30 +119,31 @@ def start_rental(rental_in: schemas.RentalCreate, db: Session = Depends(get_db))
     db.commit()
     db.refresh(rental)
 
-    # Обновляем статус оборудования
-    try:
-        requests.post(
-            f"{INVENTORY_SERVICE_URL}/equipment/update",
-            json={"id": rental_in.equipment_id, "status": "rented"},
-            timeout=3
-        )
-    except requests.RequestException:
-        raise HTTPException(
-            status_code=502,
-            detail="Failed to update equipment in inventory-service"
-        )
+    # обновляем статус оборудования
+    requests.post(
+        f"{INVENTORY_SERVICE_URL}/equipment/update",
+        json={"id": rental_in.equipment_id, "status": "rented"},
+        timeout=3
+    )
 
     return rental
 
 
 @app.post("/rentals/return/{rental_id}", response_model=schemas.Rental, tags=["rentals"])
-def return_rental(rental_id: int, db: Session = Depends(get_db)):
+def return_rental(
+    rental_id: int,
+    db: Session = Depends(get_db),
+    current: TokenUser = Depends(get_current_user),
+):
     rental = db.query(models.Rental).filter(models.Rental.id == rental_id).first()
-    if rental is None:
-        raise HTTPException(status_code=404, detail="Rental not found")
+    if not rental:
+        raise HTTPException(404, "Rental not found")
+
+    if rental.user_id != current.user_id and current.role != "admin":
+        raise HTTPException(403, "Not your rental")
 
     if rental.status != "active":
-        raise HTTPException(status_code=400, detail="Rental is not active")
+        raise HTTPException(400, "Rental already completed")
 
     end_time = datetime.utcnow()
     hourly_rate = get_equipment_hourly_rate(rental.equipment_id)
@@ -125,59 +160,54 @@ def return_rental(rental_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(rental)
 
-    # Сбрасываем статус оборудования
-    try:
-        requests.post(
-            f"{INVENTORY_SERVICE_URL}/equipment/update",
-            json={"id": rental.equipment_id, "status": "available"},
-            timeout=3
-        )
-    except requests.RequestException:
-        raise HTTPException(
-            status_code=502,
-            detail="Failed to update equipment status in inventory-service"
-        )
+    # освободить оборудование
+    requests.post(
+        f"{INVENTORY_SERVICE_URL}/equipment/update",
+        json={"id": rental.equipment_id, "status": "available"},
+        timeout=3
+    )
 
     return rental
 
 
-@app.get("/rentals/active", response_model=List[schemas.Rental], tags=["rentals"])
-def get_active_rentals(
+@app.get("/rentals/my", response_model=List[schemas.Rental], tags=["rentals"])
+def get_my_rentals(
     db: Session = Depends(get_db),
-    user_id: Optional[int] = None,
+    current: TokenUser = Depends(get_current_user),
 ):
-    query = db.query(models.Rental).filter(models.Rental.status == "active")
-    if user_id is not None:
-        query = query.filter(models.Rental.user_id == user_id)
+    return (
+        db.query(models.Rental)
+        .filter(models.Rental.user_id == current.user_id)
+        .order_by(models.Rental.start_time.desc())
+        .all()
+    )
 
-    rentals = query.order_by(models.Rental.start_time.desc()).all()
-    return rentals
 
-
-@app.get("/rentals/history", response_model=List[schemas.Rental], tags=["rentals"])
-def get_rental_history(
+@app.get("/rentals/all", response_model=List[schemas.Rental], tags=["rentals"])
+def get_all_rentals(
     db: Session = Depends(get_db),
-    user_id: Optional[int] = None,
+    admin: TokenUser = Depends(get_admin_user),
 ):
-    query = db.query(models.Rental).filter(models.Rental.status != "active")
-    if user_id is not None:
-        query = query.filter(models.Rental.user_id == user_id)
-
-    rentals = query.order_by(models.Rental.start_time.desc()).all()
-    return rentals
+    return db.query(models.Rental).order_by(models.Rental.start_time.desc()).all()
 
 
 @app.get("/rentals/{rental_id}", response_model=schemas.Rental, tags=["rentals"])
-def get_rental_by_id(
+def get_rental(
     rental_id: int,
     db: Session = Depends(get_db),
+    current: TokenUser = Depends(get_current_user),
 ):
     rental = db.query(models.Rental).filter(models.Rental.id == rental_id).first()
-    if rental is None:
-        raise HTTPException(status_code=404, detail="Rental not found")
+
+    if not rental:
+        raise HTTPException(404, "Rental not found")
+
+    if rental.user_id != current.user_id and current.role != "admin":
+        raise HTTPException(403, "Not your rental")
+
     return rental
 
 
 @app.get("/health", tags=["health"])
 def health():
-  return {"status": "ok", "service": "rental-service"}
+    return {"status": "ok", "service": "rental-service"}

@@ -5,8 +5,8 @@ const inventory = process.env.INVENTORY_API;
 const rental = process.env.RENTAL_API;
 
 if (!auth || !inventory || !rental) {
-  console.error("❌ Missing environment variables for prod build");
-  console.error("Expected: AUTH_API, INVENTORY_API, RENTAL_API");
+  console.error("❌ Missing environment variables for prod build:");
+  console.error("AUTH_API, INVENTORY_API, INVENTORY_API must be set");
   process.exit(1);
 }
 
@@ -20,4 +20,5 @@ export const environment = {
 `;
 
 fs.writeFileSync('./src/environments/environment.prod.ts', content);
-console.log("✅ environment.prod.ts generated successfully");
+
+console.log("✅ Generated environment.prod.ts for production build");

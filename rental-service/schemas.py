@@ -1,31 +1,46 @@
 from datetime import datetime
 from typing import Optional, List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
+# ==========================
+# BASE MODELS
+# ==========================
 
 class RentalBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     user_id: int
     equipment_id: int
 
 
-class RentalCreate(RentalBase):
-    """
-    Данные для старта аренды.
-    Пока достаточно user_id и equipment_id.
-    """
-    pass
+# ==========================
+# CREATE MODEL (REQUEST)
+# ==========================
 
+class RentalCreate(BaseModel):
+    """
+    Для старта аренды пользователь не передаёт user_id.
+    Он берётся из JWT.
+    """
+    equipment_id: int
+
+
+# ==========================
+# RETURN MODEL
+# ==========================
 
 class RentalReturn(BaseModel):
-    """
-    Можно будет расширить (например, передавать комментарии/повреждения и т.п.).
-    Сейчас не используется.
-    """
     pass
 
 
+# ==========================
+# DB MODEL
+# ==========================
+
 class RentalInDBBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
     equipment_id: int
@@ -36,20 +51,19 @@ class RentalInDBBase(BaseModel):
     total_price: Optional[float] = None
     penalty_eur: float
 
-    class Config:
-        orm_mode = True
 
+# ==========================
+# RESPONSE MODEL
+# ==========================
 
 class Rental(RentalInDBBase):
-    """
-    Модель для ответа API.
-    """
     pass
 
 
+# ==========================
+# LIST MODEL
+# ==========================
+
 class RentalList(BaseModel):
-    """
-    Обёртка под список, если захочется добавлять метаданные (пагинация и т.п.).
-    Пока можно не использовать.
-    """
+    model_config = ConfigDict(from_attributes=True)
     items: List[Rental]

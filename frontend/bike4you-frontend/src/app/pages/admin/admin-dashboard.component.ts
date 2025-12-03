@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
   standalone: true,
   selector: 'app-admin-dashboard',
   imports: [RouterLink],
+  styleUrls: ['./admin.scss'],
   template: `
     <h2>Admin Panel</h2>
     <ul>

@@ -12,13 +12,17 @@ import { AuthService } from '../../services/auth.service';
   styleUrls: ['./login.component.scss']
 })
 export class LoginComponent {
+
+  mode: 'login' | 'register' = 'login';
+
   name = '';
   email = '';
-  mode: 'login' | 'register' = 'login';
+  password = '';
+
   error: string | null = null;
 
   constructor(
-    private authService: AuthService,
+    private auth: AuthService,
     private router: Router
   ) {}
 
@@ -36,36 +40,24 @@ export class LoginComponent {
     return this.email.endsWith('@kamk.fi');
   }
 
-  // -------------------------------
-  //      UNIVERSAL ERROR PARSER
-  // -------------------------------
-  private extractError(err: any): string {
-    // Backend usually returns: { detail: "message" }
+  extractError(err: any): string {
     const detail = err?.error?.detail;
 
-    if (!detail) return 'Unknown error';
-
-    // If it's already string
+    if (!detail) return "Unknown error";
     if (typeof detail === 'string') return detail;
 
-    // If backend returned an object: { message: "...", code: ... }
-    if (typeof detail === 'object') {
-      try {
-        return Object.values(detail).join(', ');
-      } catch {
-        return JSON.stringify(detail);
-      }
+    try {
+      return JSON.stringify(detail);
+    } catch {
+      return 'Unknown error';
     }
-
-    return 'Unknown error';
   }
 
-  // --------------------------------
-  //            LOGIN
-  // --------------------------------
+  // ---------------- LOGIN ----------------
   onLogin() {
     this.error = null;
-    this.authService.login(this.email).subscribe({
+
+    this.auth.login(this.email, this.password).subscribe({
       next: () => {
         this.router.navigate(['/dashboard']);
       },
@@ -75,12 +67,11 @@ export class LoginComponent {
     });
   }
 
-  // --------------------------------
-  //          REGISTER
-  // --------------------------------
+  // ---------------- REGISTER ----------------
   onRegister() {
     this.error = null;
-    this.authService.register(this.name, this.email).subscribe({
+
+    this.auth.register(this.name, this.email, this.password).subscribe({
       next: () => {
         this.router.navigate(['/dashboard']);
       },

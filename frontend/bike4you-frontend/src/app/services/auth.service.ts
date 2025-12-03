@@ -16,6 +16,7 @@ export interface User {
 export class AuthService {
 
   private apiUrl = environment.authApi;
+
   private userKey = 'user';
   private tokenKey = 'access_token';
 
@@ -34,9 +35,11 @@ export class AuthService {
     }
   }
 
-  // 🔥 LOGIN by EMAIL ONLY
-  login(email: string): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/auth/login`, { email })
+  // -------------------------------------
+  //                LOGIN
+  // -------------------------------------
+  login(email: string, password: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/auth/login`, { email, password })
       .pipe(
         tap(res => {
           localStorage.setItem(this.tokenKey, res.access_token);
@@ -46,9 +49,13 @@ export class AuthService {
       );
   }
 
-  // 🔥 REGISTER without password
-  register(name: string, email: string): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/auth/register`, { name, email })
+  // -------------------------------------
+  //               REGISTER
+  // -------------------------------------
+  register(name: string, email: string, password: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/auth/register`, {
+      name, email, password
+    })
       .pipe(
         tap(res => {
           localStorage.setItem(this.tokenKey, res.access_token);
@@ -58,15 +65,9 @@ export class AuthService {
       );
   }
 
-  saveUser(user: User) {
-    this.currentUser = user;
-    localStorage.setItem(this.userKey, JSON.stringify(user));
-  }
-
-  getUser(): User | null {
-    return this.currentUser;
-  }
-
+  // -------------------------------------
+  //     TOKEN + AUTH HEADERS
+  // -------------------------------------
   getToken(): string {
     return localStorage.getItem(this.tokenKey) ?? '';
   }
@@ -77,10 +78,20 @@ export class AuthService {
     });
   }
 
+  // -------------------------------------
+  //              USER
+  // -------------------------------------
+  getUser(): User | null {
+    return this.currentUser;
+  }
+
   isAdmin(): boolean {
     return this.currentUser?.role === 'admin';
   }
 
+  // -------------------------------------
+  //              LOGOUT
+  // -------------------------------------
   logout() {
     this.currentUser = null;
     localStorage.removeItem(this.userKey);

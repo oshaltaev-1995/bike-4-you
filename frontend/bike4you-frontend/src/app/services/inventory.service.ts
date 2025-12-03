@@ -32,18 +32,31 @@ export class InventoryService {
       params = params.set('type', filters.type);
     }
 
-    return this.http.get<Equipment[]>(`${this.apiUrl}/equipment`, { params });
+    return this.http.get<Equipment[]>(`${this.apiUrl}/equipment`, {
+      params,
+      withCredentials: false
+    });
   }
 
   getById(id: number): Observable<Equipment> {
-    return this.http.get<Equipment>(`${this.apiUrl}/equipment/${id}`);
+    return this.http.get<Equipment>(`${this.apiUrl}/equipment/${id}`, {
+      withCredentials: false
+    });
   }
 
   add(data: { type: string; status: string; location: string; image_url?: string }): Observable<Equipment> {
-    return this.http.post<Equipment>(`${this.apiUrl}/equipment/add`, data);
+    return this.http.post<Equipment>(
+      `${this.apiUrl}/equipment/add`,
+      data,
+      { withCredentials: false }
+    );
   }
 
   updateStatus(id: number, status: string): Observable<Equipment> {
-    return this.http.post<Equipment>(`${this.apiUrl}/equipment/update`, { id, status });
+    return this.http.post<Equipment>(
+      `${this.apiUrl}/equipment/update`,
+      { id, status },
+      { withCredentials: false }
+    );
   }
 }

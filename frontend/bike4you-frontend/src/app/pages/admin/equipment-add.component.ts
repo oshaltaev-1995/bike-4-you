@@ -7,6 +7,7 @@ import { Router } from '@angular/router';
 @Component({
   standalone: true,
   imports: [FormsModule],
+  styleUrls: ['./admin.scss'],
   selector: 'app-equipment-add',
   template: `
     <h2>Add Equipment</h2>

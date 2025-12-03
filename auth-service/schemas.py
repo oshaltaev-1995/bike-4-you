@@ -1,11 +1,21 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
+from typing import Optional
 
-# ---------- INPUT SCHEMAS ----------
 
-class UserCreate(BaseModel):
+class UserBase(BaseModel):
     name: str
     email: EmailStr
+
+
+class UserCreate(UserBase):
     password: str
+
+
+class UserOut(UserBase):
+    id: int
+    role: str
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LoginRequest(BaseModel):
@@ -13,19 +23,9 @@ class LoginRequest(BaseModel):
     password: str
 
 
-# ---------- OUTPUT SCHEMAS ----------
-
-class UserOut(BaseModel):
-    id: int
-    name: str
-    email: EmailStr
-    role: str
-
-    class Config:
-        orm_mode = True
-
-
 class Token(BaseModel):
     access_token: str
     token_type: str
     user: UserOut
+
+    model_config = ConfigDict(from_attributes=True)

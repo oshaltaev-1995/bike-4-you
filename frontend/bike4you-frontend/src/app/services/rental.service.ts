@@ -24,17 +24,17 @@ export class RentalService {
 
   constructor(private http: HttpClient) {}
 
+  // backend сам берёт user_id из JWT — параметр userId сохраняем "для вида"
   getActive(userId: number): Observable<Rental[]> {
-    return this.http.get<Rental[]>(`${this.API_URL}/rentals/active?user_id=${userId}`);
+    return this.http.get<Rental[]>(`${this.API_URL}/rentals/my`);
   }
 
   getHistory(userId: number): Observable<Rental[]> {
-    return this.http.get<Rental[]>(`${this.API_URL}/rentals/history?user_id=${userId}`);
+    return this.http.get<Rental[]>(`${this.API_URL}/rentals/my`);
   }
 
   startRental(userId: number, equipmentId: number): Observable<Rental> {
     return this.http.post<Rental>(`${this.API_URL}/rentals/start`, {
-      user_id: userId,
       equipment_id: equipmentId
     });
   }

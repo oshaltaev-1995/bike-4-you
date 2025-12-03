@@ -5,6 +5,7 @@ import { AuthService } from '../../services/auth.service';
 
 @Component({
   standalone: true,
+  styleUrls: ['./admin.scss'],
   imports: [NgFor],
   selector: 'app-rentals-list',
   template: `

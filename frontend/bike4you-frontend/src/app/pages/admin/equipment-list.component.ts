@@ -6,6 +6,7 @@ import { NgFor } from '@angular/common';
 
 @Component({
   standalone: true,
+  styleUrls: ['./admin.scss'],
   selector: 'app-equipment-list',
   imports: [RouterLink, NgFor],
   template: `

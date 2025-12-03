@@ -1,10 +1,10 @@
 from datetime import datetime
 import math
 import os
-from typing import List, Optional
+from typing import List
 
 import requests
-from fastapi import FastAPI, Depends, HTTPException, Header, status
+from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -15,12 +15,12 @@ import schemas
 from database import Base, engine
 from deps import get_db
 
-# --- DB ---
+# ---------- DB ----------
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Bike4You RentalService", version="1.0.0")
 
-# --- CORS ---
+# ---------- CORS ----------
 origins = [
     "http://localhost:4200",
     "http://127.0.0.1:4200",
@@ -34,7 +34,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- JWT CONFIG ---
+# ---------- JWT ----------
 SECRET_KEY = "SUPER_SECRET_KEY_CHANGE_ME"
 ALGORITHM = "HS256"
 
@@ -46,45 +46,46 @@ class TokenUser(BaseModel):
 
 def get_current_user(authorization: str = Header(...)) -> TokenUser:
     if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Invalid authorization header")
+        raise HTTPException(401, "Invalid authorization header")
 
     token = authorization.split(" ", 1)[1].strip()
 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
+        raise HTTPException(401, "Token expired")
     except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(401, "Invalid token")
 
     user_id = payload.get("sub")
     role = payload.get("role")
     if user_id is None or role is None:
-        raise HTTPException(status_code=401, detail="Invalid token payload")
+        raise HTTPException(401, "Invalid token payload")
 
     return TokenUser(user_id=int(user_id), role=role)
 
 
 def get_admin_user(current_user: TokenUser = Depends(get_current_user)):
     if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin privileges required")
+        raise HTTPException(403, "Admin privileges required")
     return current_user
 
 
-# --- Inventory service URL ---
+# ---------- Inventory service ----------
 INVENTORY_SERVICE_URL = os.getenv(
-    "INVENTORY_SERVICE_URL",
+    "INVENTORY_SERVICE_URL", 
     "http://inventory-service:8000"
 )
 
 
-# --- helpers ---
-
-def get_equipment_hourly_rate(equipment_id: int) -> float:
+# ---------- Helper functions ----------
+def get_equipment_hourly_rate(equipment_id: int, authorization: str) -> float:
     url = f"{INVENTORY_SERVICE_URL}/equipment/{equipment_id}"
-    resp = requests.get(url, timeout=3)
+    resp = requests.get(url, headers={"Authorization": authorization}, timeout=3)
+
     if resp.status_code != 200:
         raise HTTPException(502, "Failed to fetch equipment from inventory-service")
+
     data = resp.json()
     return float(data["hourly_rate"])
 
@@ -96,19 +97,15 @@ def calculate_rental_price(start_time: datetime, end_time: datetime, hourly_rate
     return minutes, hours * hourly_rate
 
 
-# --- ENDPOINTS ---
-
+# ---------- API ENDPOINTS ----------
 
 @app.post("/rentals/start", response_model=schemas.Rental, tags=["rentals"])
 def start_rental(
     rental_in: schemas.RentalCreate,
     db: Session = Depends(get_db),
     current: TokenUser = Depends(get_current_user),
+    authorization: str = Header(...),
 ):
-    """
-    user_id not taken from the body request.
-    Only from JWT.
-    """
     rental = models.Rental(
         user_id=current.user_id,
         equipment_id=rental_in.equipment_id,
@@ -119,11 +116,12 @@ def start_rental(
     db.commit()
     db.refresh(rental)
 
-    # обновляем статус оборудования
+    # Update equipment → rented
     requests.post(
         f"{INVENTORY_SERVICE_URL}/equipment/update",
         json={"id": rental_in.equipment_id, "status": "rented"},
-        timeout=3
+        headers={"Authorization": authorization},
+        timeout=3,
     )
 
     return rental
@@ -134,6 +132,7 @@ def return_rental(
     rental_id: int,
     db: Session = Depends(get_db),
     current: TokenUser = Depends(get_current_user),
+    authorization: str = Header(...),
 ):
     rental = db.query(models.Rental).filter(models.Rental.id == rental_id).first()
     if not rental:
@@ -146,7 +145,7 @@ def return_rental(
         raise HTTPException(400, "Rental already completed")
 
     end_time = datetime.utcnow()
-    hourly_rate = get_equipment_hourly_rate(rental.equipment_id)
+    hourly_rate = get_equipment_hourly_rate(rental.equipment_id, authorization)
 
     minutes, total_price = calculate_rental_price(
         rental.start_time, end_time, hourly_rate
@@ -160,11 +159,12 @@ def return_rental(
     db.commit()
     db.refresh(rental)
 
-    # освободить оборудование
+    # Update equipment → available
     requests.post(
         f"{INVENTORY_SERVICE_URL}/equipment/update",
         json={"id": rental.equipment_id, "status": "available"},
-        timeout=3
+        headers={"Authorization": authorization},
+        timeout=3,
     )
 
     return rental

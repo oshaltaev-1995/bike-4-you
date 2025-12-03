@@ -43,52 +43,60 @@ export class RentalsComponent implements OnInit {
     }
   }
 
+  // -----------------------
+  // Equipment preload
+  // -----------------------
   preloadEquipmentFor(rentals: Rental[]) {
-    const calls = rentals.map(r =>
-      this.inventory.getById(r.equipment_id)
-    );
-
+    const calls = rentals.map(r => this.inventory.getById(r.equipment_id));
     if (calls.length === 0) return;
 
     forkJoin(calls).subscribe(items => {
-      items.forEach(eq => {
-        this.equipmentCache[eq.id] = eq;
-      });
+      items.forEach(eq => this.equipmentCache[eq.id] = eq);
     });
   }
 
+  // -----------------------
+  // Load active rentals
+  // -----------------------
   loadActive() {
     if (!this.user) return;
+
     this.loading = true;
     this.error = null;
 
     this.rentals.getActive(this.user.id).subscribe({
       next: (data) => {
-        this.activeRentals = data;
-        this.preloadEquipmentFor(data);
+        this.activeRentals = data.filter(r => r.status === 'active');
+        this.preloadEquipmentFor(this.activeRentals);
         this.loading = false;
       },
       error: (err) => {
-        this.error = err.error?.detail || 'Failed to load active rentals';
+        this.error = this.formatError(err) || 'Failed to load active rentals';
         this.loading = false;
       }
     });
   }
 
+  // -----------------------
+  // Load rental history
+  // -----------------------
   loadHistory() {
     if (!this.user) return;
 
     this.rentals.getHistory(this.user.id).subscribe({
       next: (data) => {
-        this.historyRentals = data;
-        this.preloadEquipmentFor(data);
+        this.historyRentals = data.filter(r => r.status !== 'active');
+        this.preloadEquipmentFor(this.historyRentals);
       },
       error: (err) => {
-        this.error = err.error?.detail || 'Failed to load rental history';
+        this.error = this.formatError(err) || 'Failed to load rental history';
       }
     });
   }
 
+  // -----------------------
+  // Helpers
+  // -----------------------
   setTab(t: 'active' | 'history') {
     this.tab = t;
   }
@@ -105,7 +113,6 @@ export class RentalsComponent implements OnInit {
 
     this.rentals.returnRental(id).subscribe({
       next: (rental: Rental) => {
-
         this.inventory.updateStatus(rental.equipment_id, 'available').subscribe({
           next: () => {
             this.loadActive();
@@ -120,9 +127,40 @@ export class RentalsComponent implements OnInit {
         });
       },
       error: (err) => {
-        this.error = err.error?.detail || 'Failed to return rental';
+        this.error = this.formatError(err) || 'Failed to return rental';
         this.loading = false;
       }
     });
+  }
+
+  // -----------------------
+  // Pretty error formatting
+  // -----------------------
+  private formatError(err: any): string {
+    if (!err) return 'Unknown error';
+
+    if (typeof err === 'string') return err;
+
+    if (err.error) {
+      if (typeof err.error === 'string') return err.error;
+
+      if (err.error.detail) {
+        if (typeof err.error.detail === 'string') return err.error.detail;
+
+        if (Array.isArray(err.error.detail)) {
+          return err.error.detail
+            .map((d: any) => d.msg || JSON.stringify(d))
+            .join('; ');
+        }
+      }
+    }
+
+    if (err.message) return err.message;
+
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return 'Unknown error';
+    }
   }
 }

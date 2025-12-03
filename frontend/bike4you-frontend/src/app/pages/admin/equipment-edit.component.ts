@@ -6,6 +6,7 @@ import { AuthService } from '../../services/auth.service';
 
 @Component({
   standalone: true,
+  styleUrls: ['./admin.scss'],
   selector: 'app-equipment-edit',
   imports: [FormsModule, RouterLink],
   template: `

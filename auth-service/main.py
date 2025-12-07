@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from passlib.context import CryptContext
 import jwt
+import os
 
 import models
 import schemas
@@ -11,26 +12,37 @@ from database import Base, engine
 from deps import get_db
 
 # --------------------------
+# INIT APP
+# --------------------------
+
+app = FastAPI(title="Bike4You AuthService", version="2.0.0")
+
+# Create tables
+Base.metadata.create_all(bind=engine)
+
+
+# --------------------------
 # CONFIG
 # --------------------------
 
-SECRET_KEY = "SUPER_SECRET_KEY_CHANGE_ME"
+SECRET_KEY = os.getenv("SECRET_KEY", "SUPER_SECRET_KEY_CHANGE_ME")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 KAMK_DOMAIN = "@kamk.fi"
 
+
+# --------------------------
+# CORS
+# --------------------------
+
 origins = [
     "http://localhost:4200",
     "http://127.0.0.1:4200",
-    # позже добавим прод-URL
+    "https://bike4you.onrender.com",
+    "https://*.onrender.com",
 ]
-
-# Create tables
-Base.metadata.create_all(bind=engine)
-
-app = FastAPI(title="Bike4You AuthService", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -39,6 +51,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # --------------------------
 # HELPERS
@@ -60,6 +73,7 @@ def create_access_token(user_id: int, role: str) -> str:
         "exp": expire
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
 
 # --------------------------
 # ENDPOINTS

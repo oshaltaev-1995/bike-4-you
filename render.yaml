@@ -1,0 +1,69 @@
+services:
+  # -------------------------
+  # AUTH SERVICE
+  # -------------------------
+  - name: bike4you-auth
+    type: web
+    env: docker
+    rootDir: auth-service
+    plan: free
+    region: frankfurt
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:////data/auth.db
+    disks:
+      - name: authdisk
+        mountPath: /data
+        sizeGB: 1
+
+  # -------------------------
+  # INVENTORY SERVICE
+  # -------------------------
+  - name: bike4you-inventory
+    type: web
+    env: docker
+    rootDir: inventory-service
+    plan: free
+    region: frankfurt
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:////data/inventory.db
+    disks:
+      - name: invdisk
+        mountPath: /data
+        sizeGB: 1
+
+  # -------------------------
+  # RENTAL SERVICE
+  # -------------------------
+  - name: bike4you-rental
+    type: web
+    env: docker
+    rootDir: rental-service
+    plan: free
+    region: frankfurt
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:////data/rental.db
+      - key: INVENTORY_SERVICE_URL
+        value: https://bike4you-inventory.onrender.com
+    disks:
+      - name: rentaldisk
+        mountPath: /data
+        sizeGB: 1
+
+  # -------------------------
+  # FRONTEND
+  # -------------------------
+  - name: bike4you-frontend
+    type: static
+    rootDir: frontend/bike4you-frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist/bike4you-frontend
+    envVars:
+      - key: AUTH_API
+        value: https://bike4you-auth.onrender.com
+      - key: INVENTORY_API
+        value: https://bike4you-inventory.onrender.com
+      - key: RENTAL_API
+        value: https://bike4you-rental.onrender.com

@@ -1,34 +1,62 @@
 version: "3.9"
 
 services:
+  postgres:
+    image: postgres:15
+    container_name: bike4you-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypass
+      POSTGRES_DB: main
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myuser"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
   auth-service:
     build: ./auth-service
     ports:
       - "8001:8000"
     environment:
-      - DATABASE_URL=sqlite:////app/db/auth.db
-    volumes:
-      - auth_db:/app/db
+      DATABASE_URL: postgresql+psycopg2://myuser:mypass@postgres:5432/authdb
+      SECRET_KEY: SUPER_SECRET_KEY_CHANGE_ME
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   inventory-service:
     build: ./inventory-service
     ports:
       - "8002:8000"
     environment:
-      - DATABASE_URL=sqlite:////app/db/inventory.db
-    volumes:
-      - inventory_db:/app/db
+      DATABASE_URL: postgresql+psycopg2://myuser:mypass@postgres:5432/inventorydb
+      SECRET_KEY: SUPER_SECRET_KEY_CHANGE_ME
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   rental-service:
     build: ./rental-service
     ports:
       - "8003:8000"
     environment:
-      - DATABASE_URL=sqlite:////app/db/rental.db
-    volumes:
-      - rental_db:/app/db
+      DATABASE_URL: postgresql+psycopg2://myuser:mypass@postgres:5432/rentaldb
+      SECRET_KEY: SUPER_SECRET_KEY_CHANGE_ME
+      INVENTORY_SERVICE_URL: http://inventory-service:8000
+      AUTH_SERVICE_URL: http://auth-service:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      inventory-service:
+        condition: service_started
+      auth-service:
+        condition: service_started
 
 volumes:
-  auth_db:
-  inventory_db:
-  rental_db:
+  pgdata:

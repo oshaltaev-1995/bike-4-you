@@ -12,14 +12,16 @@ from database import Base, engine
 from deps import get_db
 
 # --------------------------
-# INIT APP
+# APP INIT
 # --------------------------
 
-app = FastAPI(title="Bike4You AuthService", version="2.0.0")
+app = FastAPI(
+    title="Bike4You AuthService",
+    version="2.0.0",
+    swagger_ui_parameters={"persistAuthorization": True}
+)
 
-# Create tables
 Base.metadata.create_all(bind=engine)
-
 
 # --------------------------
 # CONFIG
@@ -32,48 +34,37 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 KAMK_DOMAIN = "@kamk.fi"
 
-
 # --------------------------
 # CORS
 # --------------------------
 
-origins = [
-    "http://localhost:4200",
-    "http://127.0.0.1:4200",
-    "https://bike4you.onrender.com",
-    "https://*.onrender.com",
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=[
+        "http://localhost:4200",
+        "http://127.0.0.1:4200",
+        "https://bike4you.onrender.com",
+        "https://*.onrender.com",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
 # --------------------------
 # HELPERS
 # --------------------------
 
-def hash_password(password: str) -> str:
+def hash_password(password: str):
     return pwd_context.hash(password)
 
-
-def verify_password(password: str, hashed: str) -> bool:
+def verify_password(password: str, hashed: str):
     return pwd_context.verify(password, hashed)
 
-
-def create_access_token(user_id: int, role: str) -> str:
+def create_access_token(user_id: int, role: str):
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload = {
-        "sub": str(user_id),
-        "role": role,
-        "exp": expire
-    }
+    payload = {"sub": str(user_id), "role": role, "exp": expire}
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
-
 
 # --------------------------
 # ENDPOINTS
@@ -101,17 +92,11 @@ def register(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     db.refresh(user)
 
     token = create_access_token(user.id, user.role)
-
-    return schemas.Token(
-        access_token=token,
-        token_type="bearer",
-        user=user
-    )
+    return schemas.Token(access_token=token, token_type="bearer", user=user)
 
 
 @app.post("/auth/login", response_model=schemas.Token)
 def login(data: schemas.LoginRequest, db: Session = Depends(get_db)):
-
     user = db.query(models.User).filter(models.User.email == data.email).first()
     if not user:
         raise HTTPException(404, "User not found")
@@ -120,25 +105,17 @@ def login(data: schemas.LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(400, "Incorrect password")
 
     token = create_access_token(user.id, user.role)
-
-    return schemas.Token(
-        access_token=token,
-        token_type="bearer",
-        user=user
-    )
+    return schemas.Token(access_token=token, token_type="bearer", user=user)
 
 
 @app.get("/auth/me", response_model=schemas.UserOut)
 def get_me(token: str, db: Session = Depends(get_db)):
-
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except:
         raise HTTPException(401, "Invalid token")
 
-    user_id = int(payload["sub"])
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-
+    user = db.query(models.User).filter(models.User.id == int(payload["sub"])).first()
     if not user:
         raise HTTPException(404, "User not found")
 
@@ -147,7 +124,6 @@ def get_me(token: str, db: Session = Depends(get_db)):
 
 @app.post("/auth/make-admin/{user_id}", response_model=schemas.UserOut)
 def make_admin(user_id: int, db: Session = Depends(get_db)):
-
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(404, "User not found")
@@ -155,5 +131,4 @@ def make_admin(user_id: int, db: Session = Depends(get_db)):
     user.role = "admin"
     db.commit()
     db.refresh(user)
-
     return user

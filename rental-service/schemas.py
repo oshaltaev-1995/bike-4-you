@@ -1,7 +1,16 @@
 from datetime import datetime
 from typing import Optional, List
-
 from pydantic import BaseModel, ConfigDict
+
+
+# ==========================
+# USER MODEL FOR JWT
+# ==========================
+
+class TokenUserBase(BaseModel):
+    user_id: int
+    role: str
+
 
 # ==========================
 # BASE MODELS
@@ -15,23 +24,11 @@ class RentalBase(BaseModel):
 
 
 # ==========================
-# CREATE MODEL (REQUEST)
+# CREATE MODEL
 # ==========================
 
 class RentalCreate(BaseModel):
-    """
-    Для старта аренды пользователь не передаёт user_id.
-    Он берётся из JWT.
-    """
     equipment_id: int
-
-
-# ==========================
-# RETURN MODEL
-# ==========================
-
-class RentalReturn(BaseModel):
-    pass
 
 
 # ==========================

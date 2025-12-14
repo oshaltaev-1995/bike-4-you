@@ -4,10 +4,10 @@ import os
 from typing import List
 
 import requests
-from fastapi import FastAPI, Depends, HTTPException, Header
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
 
 import models
@@ -15,41 +15,24 @@ import schemas
 from database import Base, engine
 from deps import get_db
 
-# ---------- DB ----------
-Base.metadata.create_all(bind=engine)
+# ============================
+# CONFIG
+# ============================
 
-app = FastAPI(title="Bike4You RentalService", version="1.0.0")
-
-# ---------- CORS ----------
-origins = [
-    "http://localhost:4200",
-    "https://bike4you.onrender.com",
-    "https://*.onrender.com",
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# ---------- JWT ----------
 SECRET_KEY = "SUPER_SECRET_KEY_CHANGE_ME"
 ALGORITHM = "HS256"
 
+bearer = HTTPBearer()  # Swagger-compatible bearer auth
+INVENTORY_URL = os.getenv("INVENTORY_URL", "http://inventory-service:8000")
 
-class TokenUser(BaseModel):
-    user_id: int
-    role: str
+# ============================
+# AUTH
+# ============================
 
-
-def get_current_user(authorization: str = Header(...)) -> TokenUser:
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(401, "Invalid authorization header")
-
-    token = authorization.split(" ", 1)[1].strip()
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer),
+):
+    token = credentials.credentials
 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -58,101 +41,128 @@ def get_current_user(authorization: str = Header(...)) -> TokenUser:
     except jwt.PyJWTError:
         raise HTTPException(401, "Invalid token")
 
-    user_id = payload.get("sub")
-    role = payload.get("role")
-    if user_id is None or role is None:
-        raise HTTPException(401, "Invalid token payload")
-
-    return TokenUser(user_id=int(user_id), role=role)
+    return schemas.TokenUserBase(
+        user_id=int(payload["sub"]),
+        role=payload["role"]
+    )
 
 
-def get_admin_user(current_user: TokenUser = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(403, "Admin privileges required")
-    return current_user
+def get_admin_user(current=Depends(get_current_user)):
+    if current.role != "admin":
+        raise HTTPException(403, "Admin only")
+    return current
 
 
-# ---------- Inventory service ----------
-INVENTORY_SERVICE_URL = os.getenv(
-    "INVENTORY_SERVICE_URL", 
-    "http://inventory-service:8000"
+# ============================
+# APP INIT
+# ============================
+
+app = FastAPI(
+    title="Bike4You RentalService",
+    version="1.0.0",
+    swagger_ui_parameters={"persistAuthorization": True},
+)
+
+Base.metadata.create_all(bind=engine)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:4200",
+        "https://bike4you.onrender.com",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
-# ---------- Helper functions ----------
-def get_equipment_hourly_rate(equipment_id: int, authorization: str) -> float:
-    url = f"{INVENTORY_SERVICE_URL}/equipment/{equipment_id}"
-    resp = requests.get(url, headers={"Authorization": authorization}, timeout=3)
+# ============================
+# HELPERS
+# ============================
+
+def get_rate(equipment_id: int, token: str) -> float:
+    resp = requests.get(
+        f"{INVENTORY_URL}/equipment/{equipment_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=3,
+    )
 
     if resp.status_code != 200:
-        raise HTTPException(502, "Failed to fetch equipment from inventory-service")
+        raise HTTPException(502, "Inventory service error")
 
-    data = resp.json()
-    return float(data["hourly_rate"])
+    return float(resp.json()["hourly_rate"])
 
 
-def calculate_rental_price(start_time: datetime, end_time: datetime, hourly_rate: float):
-    delta = end_time - start_time
-    minutes = max(1, math.ceil(delta.total_seconds() / 60))
+def calc_price(start: datetime, end: datetime, rate: float):
+    minutes = math.ceil((end - start).total_seconds() / 60)
     hours = max(1, math.ceil(minutes / 60))
-    return minutes, hours * hourly_rate
+    return minutes, hours * rate
 
 
-# ---------- API ENDPOINTS ----------
+# ============================
+# ROUTES
+# ============================
 
-@app.post("/rentals/start", response_model=schemas.Rental, tags=["rentals"])
+@app.post("/rentals/start", response_model=schemas.Rental)
 def start_rental(
-    rental_in: schemas.RentalCreate,
+    data: schemas.RentalCreate,
     db: Session = Depends(get_db),
-    current: TokenUser = Depends(get_current_user),
-    authorization: str = Header(...),
+    current=Depends(get_current_user),
+    creds: HTTPAuthorizationCredentials = Depends(bearer),
 ):
+    token = creds.credentials
+
     rental = models.Rental(
         user_id=current.user_id,
-        equipment_id=rental_in.equipment_id,
+        equipment_id=data.equipment_id,
         start_time=datetime.utcnow(),
         status="active",
     )
+
     db.add(rental)
     db.commit()
     db.refresh(rental)
 
-    # Update equipment → rented
-    requests.post(
-        f"{INVENTORY_SERVICE_URL}/equipment/update",
-        json={"id": rental_in.equipment_id, "status": "rented"},
-        headers={"Authorization": authorization},
-        timeout=3,
-    )
+    # update inventory
+    try:
+        requests.post(
+            f"{INVENTORY_URL}/equipment/update",
+            json={"id": data.equipment_id, "status": "rented"},
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=3,
+        )
+    except Exception:
+        pass
 
     return rental
 
 
-@app.post("/rentals/return/{rental_id}", response_model=schemas.Rental, tags=["rentals"])
+@app.post("/rentals/return/{rental_id}", response_model=schemas.Rental)
 def return_rental(
     rental_id: int,
     db: Session = Depends(get_db),
-    current: TokenUser = Depends(get_current_user),
-    authorization: str = Header(...),
+    current=Depends(get_current_user),
+    creds: HTTPAuthorizationCredentials = Depends(bearer),
 ):
+    token = creds.credentials
+
     rental = db.query(models.Rental).filter(models.Rental.id == rental_id).first()
     if not rental:
         raise HTTPException(404, "Rental not found")
 
     if rental.user_id != current.user_id and current.role != "admin":
-        raise HTTPException(403, "Not your rental")
+        raise HTTPException(403, "Forbidden")
 
     if rental.status != "active":
-        raise HTTPException(400, "Rental already completed")
+        raise HTTPException(400, "Already completed")
 
-    end_time = datetime.utcnow()
-    hourly_rate = get_equipment_hourly_rate(rental.equipment_id, authorization)
+    end = datetime.utcnow()
 
-    minutes, total_price = calculate_rental_price(
-        rental.start_time, end_time, hourly_rate
-    )
+    rate = get_rate(rental.equipment_id, token)
+    minutes, total_price = calc_price(rental.start_time, end, rate)
 
-    rental.end_time = end_time
+    rental.end_time = end
     rental.total_minutes = minutes
     rental.total_price = total_price
     rental.status = "completed"
@@ -160,21 +170,24 @@ def return_rental(
     db.commit()
     db.refresh(rental)
 
-    # Update equipment → available
-    requests.post(
-        f"{INVENTORY_SERVICE_URL}/equipment/update",
-        json={"id": rental.equipment_id, "status": "available"},
-        headers={"Authorization": authorization},
-        timeout=3,
-    )
+    # update inventory back
+    try:
+        requests.post(
+            f"{INVENTORY_URL}/equipment/update",
+            json={"id": rental.equipment_id, "status": "available"},
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=3,
+        )
+    except Exception:
+        pass
 
     return rental
 
 
-@app.get("/rentals/my", response_model=List[schemas.Rental], tags=["rentals"])
-def get_my_rentals(
+@app.get("/rentals/my", response_model=List[schemas.Rental])
+def my_rentals(
     db: Session = Depends(get_db),
-    current: TokenUser = Depends(get_current_user),
+    current=Depends(get_current_user),
 ):
     return (
         db.query(models.Rental)
@@ -184,31 +197,9 @@ def get_my_rentals(
     )
 
 
-@app.get("/rentals/all", response_model=List[schemas.Rental], tags=["rentals"])
-def get_all_rentals(
+@app.get("/rentals/all", response_model=List[schemas.Rental])
+def all_rentals(
     db: Session = Depends(get_db),
-    admin: TokenUser = Depends(get_admin_user),
+    admin=Depends(get_admin_user),
 ):
     return db.query(models.Rental).order_by(models.Rental.start_time.desc()).all()
-
-
-@app.get("/rentals/{rental_id}", response_model=schemas.Rental, tags=["rentals"])
-def get_rental(
-    rental_id: int,
-    db: Session = Depends(get_db),
-    current: TokenUser = Depends(get_current_user),
-):
-    rental = db.query(models.Rental).filter(models.Rental.id == rental_id).first()
-
-    if not rental:
-        raise HTTPException(404, "Rental not found")
-
-    if rental.user_id != current.user_id and current.role != "admin":
-        raise HTTPException(403, "Not your rental")
-
-    return rental
-
-
-@app.get("/health", tags=["health"])
-def health():
-    return {"status": "ok", "service": "rental-service"}

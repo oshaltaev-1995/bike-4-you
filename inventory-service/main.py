@@ -1,16 +1,9 @@
 from typing import List, Optional
-
-from fastapi import (
-    FastAPI,
-    Depends,
-    HTTPException,
-    Query,
-    Header,
-    status,
-)
+from fastapi import FastAPI, Depends, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.openapi.utils import get_openapi
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
 import jwt
 
 import models
@@ -18,109 +11,79 @@ import schemas
 from database import Base, engine
 from deps import get_db
 
-# ---------- JWT CONFIG ----------
-
+# --------------------------
+# JWT CONFIG
+# --------------------------
 SECRET_KEY = "SUPER_SECRET_KEY_CHANGE_ME"
 ALGORITHM = "HS256"
 
-
-class TokenUser(BaseModel):
-    user_id: int
-    role: str
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
-def get_current_user(authorization: str = Header(...)) -> TokenUser:
-    """
-    Reads header Authorization: Bearer <token>,
-    decodes JWT and returns user_id + role.
-    """
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authorization header",
-        )
+class TokenUser:
+    def __init__(self, user_id: int, role: str):
+        self.user_id = user_id
+        self.role = role
 
-    token = authorization.split(" ", 1)[1].strip()
 
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+) -> TokenUser:
+    if credentials is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Missing Authorization header")
+
+    token = credentials.credentials
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token expired",
-        )
-    except jwt.PyJWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-        )
+    except:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
 
-    user_id = payload.get("sub")
-    role = payload.get("role")
-
-    if user_id is None or role is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload",
-        )
-
-    return TokenUser(user_id=int(user_id), role=role)
+    return TokenUser(user_id=int(payload["sub"]), role=payload["role"])
 
 
-def get_admin_user(current_user: TokenUser = Depends(get_current_user)) -> TokenUser:
-    """
-    Разрешает доступ только admin.
-    """
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin privileges required",
-        )
-    return current_user
+def get_admin_user(current: TokenUser = Depends(get_current_user)) -> TokenUser:
+    if current.role != "admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin privileges required")
+    return current
 
 
-# ---------- APP & DB SETUP ----------
-
+# --------------------------
+# FASTAPI APP
+# --------------------------
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Bike4You InventoryService", version="1.0.0")
+app = FastAPI(
+    title="Bike4You InventoryService",
+    version="1.0.0",
+    swagger_ui_parameters={"persistAuthorization": True},
+)
 
-# ---------- CORS ----------
-
-origins = [
-    "http://localhost:4200",
-    "https://bike4you.onrender.com",
-    "https://*.onrender.com",
-]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-# ---------- ENDPOINTS ----------
-
+# --------------------------
+# ROUTES
+# --------------------------
 @app.get("/equipment", response_model=List[schemas.EquipmentOut])
 def list_equipment(
     status: Optional[str] = Query(default=None),
     type_: Optional[str] = Query(default=None, alias="type"),
     db: Session = Depends(get_db),
-    current_user: TokenUser = Depends(get_current_user),
+    user: TokenUser = Depends(get_current_user),
 ):
     query = db.query(models.Equipment)
-
-    if status is not None:
+    if status:
         query = query.filter(models.Equipment.status == status)
-
-    if type_ is not None:
+    if type_:
         query = query.filter(models.Equipment.type == type_)
-
-    items = query.all()
-    return items
+    return query.all()
 
 
 @app.post("/equipment/add", response_model=schemas.EquipmentOut)
@@ -146,11 +109,11 @@ def add_equipment(
 def update_equipment(
     update: schemas.EquipmentUpdate,
     db: Session = Depends(get_db),
-    admin: TokenUser = Depends(get_admin_user),  # только admin
+    admin: TokenUser = Depends(get_admin_user),
 ):
     item = db.query(models.Equipment).filter(models.Equipment.id == update.id).first()
     if not item:
-        raise HTTPException(status_code=404, detail="Equipment not found")
+        raise HTTPException(404, "Equipment not found")
 
     if update.status is not None:
         item.status = update.status
@@ -167,14 +130,49 @@ def update_equipment(
 
 
 @app.get("/equipment/{equipment_id}", response_model=schemas.EquipmentOut)
-def get_equipment_by_id(
+def get_equipment(
     equipment_id: int,
     db: Session = Depends(get_db),
-    current_user: TokenUser = Depends(get_current_user),
+    user: TokenUser = Depends(get_current_user),
 ):
     item = db.query(models.Equipment).filter(models.Equipment.id == equipment_id).first()
-
     if not item:
-        raise HTTPException(status_code=404, detail="Equipment not found")
-
+        raise HTTPException(404, "Equipment not found")
     return item
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "service": "inventory-service"}
+
+
+# --------------------------
+# FIXED CUSTOM OPENAPI
+# --------------------------
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    schema = get_openapi(
+        title="Bike4You InventoryService",
+        version="1.0.0",
+        routes=app.routes,
+    )
+
+    schema["components"]["securitySchemes"] = {
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+        }
+    }
+
+    for path in schema["paths"].values():
+        for method in path.values():
+            method["security"] = [{"BearerAuth": []}]
+
+    app.openapi_schema = schema
+    return schema
+
+
+app.openapi = custom_openapi

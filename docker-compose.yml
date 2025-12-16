@@ -1,62 +1,75 @@
-version: "3.9"
-
 services:
-  postgres:
-    image: postgres:15
-    container_name: bike4you-postgres
-    restart: always
-    environment:
-      POSTGRES_USER: myuser
-      POSTGRES_PASSWORD: mypass
-      POSTGRES_DB: main
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U myuser"]
-      interval: 3s
-      timeout: 3s
-      retries: 10
+  # -------------------------
+  # AUTH SERVICE
+  # -------------------------
+  - name: bike4you-auth
+    type: web
+    env: docker
+    rootDir: auth-service
+    plan: free
+    region: frankfurt
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:////data/auth.db
+      - key: SECRET_KEY
+        value: SUPER_SECRET_KEY_CHANGE_ME
+    disks:
+      - name: authdisk
+        mountPath: /data
+        sizeGB: 1
 
-  auth-service:
-    build: ./auth-service
-    ports:
-      - "8001:8000"
-    environment:
-      DATABASE_URL: postgresql+psycopg2://myuser:mypass@postgres:5432/authdb
-      SECRET_KEY: SUPER_SECRET_KEY_CHANGE_ME
-    depends_on:
-      postgres:
-        condition: service_healthy
+  # -------------------------
+  # INVENTORY SERVICE
+  # -------------------------
+  - name: bike4you-inventory
+    type: web
+    env: docker
+    rootDir: inventory-service
+    plan: free
+    region: frankfurt
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:////data/inventory.db
+      - key: SECRET_KEY
+        value: SUPER_SECRET_KEY_CHANGE_ME
+    disks:
+      - name: invdisk
+        mountPath: /data
+        sizeGB: 1
 
-  inventory-service:
-    build: ./inventory-service
-    ports:
-      - "8002:8000"
-    environment:
-      DATABASE_URL: postgresql+psycopg2://myuser:mypass@postgres:5432/inventorydb
-      SECRET_KEY: SUPER_SECRET_KEY_CHANGE_ME
-    depends_on:
-      postgres:
-        condition: service_healthy
+  # -------------------------
+  # RENTAL SERVICE
+  # -------------------------
+  - name: bike4you-rental
+    type: web
+    env: docker
+    rootDir: rental-service
+    plan: free
+    region: frankfurt
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:////data/rental.db
+      - key: SECRET_KEY
+        value: SUPER_SECRET_KEY_CHANGE_ME
+      - key: INVENTORY_URL
+        value: https://bike4you-inventory.onrender.com
+    disks:
+      - name: rentaldisk
+        mountPath: /data
+        sizeGB: 1
 
-  rental-service:
-    build: ./rental-service
-    ports:
-      - "8003:8000"
-    environment:
-      DATABASE_URL: postgresql+psycopg2://myuser:mypass@postgres:5432/rentaldb
-      SECRET_KEY: SUPER_SECRET_KEY_CHANGE_ME
-      INVENTORY_SERVICE_URL: http://inventory-service:8000
-      AUTH_SERVICE_URL: http://auth-service:8000
-    depends_on:
-      postgres:
-        condition: service_healthy
-      inventory-service:
-        condition: service_started
-      auth-service:
-        condition: service_started
-
-volumes:
-  pgdata:
+  # -------------------------
+  # FRONTEND SERVICE
+  # -------------------------
+  - name: bike4you-frontend
+    type: static
+    rootDir: frontend/bike4you-frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist/bike4you-frontend
+    envVars:
+      - key: AUTH_API
+        value: https://bike4you-auth.onrender.com
+      - key: INVENTORY_API
+        value: https://bike4you-inventory.onrender.com
+      - key: RENTAL_API
+        value: https://bike4you-rental.onrender.com

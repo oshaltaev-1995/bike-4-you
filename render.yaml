@@ -11,6 +11,8 @@ services:
     envVars:
       - key: DATABASE_URL
         value: sqlite:////data/auth.db
+      - key: SECRET_KEY
+        value: bike4you-super-secret-jwt-key
     disks:
       - name: authdisk
         mountPath: /data
@@ -28,6 +30,8 @@ services:
     envVars:
       - key: DATABASE_URL
         value: sqlite:////data/inventory.db
+      - key: SECRET_KEY
+        value: bike4you-super-secret-jwt-key
     disks:
       - name: invdisk
         mountPath: /data
@@ -45,6 +49,8 @@ services:
     envVars:
       - key: DATABASE_URL
         value: sqlite:////data/rental.db
+      - key: SECRET_KEY
+        value: bike4you-super-secret-jwt-key
       - key: INVENTORY_SERVICE_URL
         value: https://bike4you-inventory.onrender.com
     disks:

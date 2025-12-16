@@ -18,7 +18,7 @@ from deps import get_db
 app = FastAPI(
     title="Bike4You AuthService",
     version="2.0.0",
-    swagger_ui_parameters={"persistAuthorization": True}
+    swagger_ui_parameters={"persistAuthorization": True},
 )
 
 Base.metadata.create_all(bind=engine)
@@ -41,10 +41,17 @@ KAMK_DOMAIN = "@kamk.fi"
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        # local frontend
         "http://localhost:4200",
         "http://127.0.0.1:4200",
-        "https://bike4you.onrender.com",
-        "https://*.onrender.com",
+
+        # render frontend
+        "https://bike4you-frontend.onrender.com",
+
+        # render backends (swagger + inter-service safety)
+        "https://bike4you-auth.onrender.com",
+        "https://bike4you-inventory.onrender.com",
+        "https://bike4you-rental.onrender.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -55,15 +62,19 @@ app.add_middleware(
 # HELPERS
 # --------------------------
 
-def hash_password(password: str):
+def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
-def verify_password(password: str, hashed: str):
+def verify_password(password: str, hashed: str) -> bool:
     return pwd_context.verify(password, hashed)
 
-def create_access_token(user_id: int, role: str):
+def create_access_token(user_id: int, role: str) -> str:
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload = {"sub": str(user_id), "role": role, "exp": expire}
+    payload = {
+        "sub": str(user_id),
+        "role": role,
+        "exp": expire,
+    }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 # --------------------------
@@ -76,7 +87,9 @@ def register(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     if not user_in.email.endswith(KAMK_DOMAIN):
         raise HTTPException(400, "Email must end with @kamk.fi")
 
-    existing = db.query(models.User).filter(models.User.email == user_in.email).first()
+    existing = db.query(models.User).filter(
+        models.User.email == user_in.email
+    ).first()
     if existing:
         raise HTTPException(400, "User already exists")
 
@@ -84,7 +97,7 @@ def register(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
         name=user_in.name,
         email=user_in.email,
         hashed_password=hash_password(user_in.password),
-        role="user"
+        role="user",
     )
 
     db.add(user)
@@ -92,12 +105,20 @@ def register(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     db.refresh(user)
 
     token = create_access_token(user.id, user.role)
-    return schemas.Token(access_token=token, token_type="bearer", user=user)
+
+    return schemas.Token(
+        access_token=token,
+        token_type="bearer",
+        user=user,
+    )
 
 
 @app.post("/auth/login", response_model=schemas.Token)
 def login(data: schemas.LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.email == data.email).first()
+
+    user = db.query(models.User).filter(
+        models.User.email == data.email
+    ).first()
     if not user:
         raise HTTPException(404, "User not found")
 
@@ -105,17 +126,26 @@ def login(data: schemas.LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(400, "Incorrect password")
 
     token = create_access_token(user.id, user.role)
-    return schemas.Token(access_token=token, token_type="bearer", user=user)
+
+    return schemas.Token(
+        access_token=token,
+        token_type="bearer",
+        user=user,
+    )
 
 
 @app.get("/auth/me", response_model=schemas.UserOut)
 def get_me(token: str, db: Session = Depends(get_db)):
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except:
+    except jwt.PyJWTError:
         raise HTTPException(401, "Invalid token")
 
-    user = db.query(models.User).filter(models.User.id == int(payload["sub"])).first()
+    user = db.query(models.User).filter(
+        models.User.id == int(payload["sub"])
+    ).first()
+
     if not user:
         raise HTTPException(404, "User not found")
 
@@ -124,11 +154,15 @@ def get_me(token: str, db: Session = Depends(get_db)):
 
 @app.post("/auth/make-admin/{user_id}", response_model=schemas.UserOut)
 def make_admin(user_id: int, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.id == user_id).first()
+
+    user = db.query(models.User).filter(
+        models.User.id == user_id
+    ).first()
     if not user:
         raise HTTPException(404, "User not found")
 
     user.role = "admin"
     db.commit()
     db.refresh(user)
+
     return user

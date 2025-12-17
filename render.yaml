@@ -1,7 +1,17 @@
 services:
-  # -------------------------
+  # =========================
+  # POSTGRES DATABASE
+  # =========================
+  - name: bike4you-postgres
+    type: pserv
+    plan: free
+    region: frankfurt
+    databaseName: bike4you
+    user: bike4you
+
+  # =========================
   # AUTH SERVICE
-  # -------------------------
+  # =========================
   - name: bike4you-auth
     type: web
     env: docker
@@ -10,17 +20,15 @@ services:
     region: frankfurt
     envVars:
       - key: DATABASE_URL
-        value: sqlite:////data/auth.db
+        fromDatabase:
+          name: bike4you-postgres
+          property: connectionString
       - key: SECRET_KEY
-        value: bike4you-super-secret-jwt-key
-    disks:
-      - name: authdisk
-        mountPath: /data
-        sizeGB: 1
+        generateValue: true
 
-  # -------------------------
+  # =========================
   # INVENTORY SERVICE
-  # -------------------------
+  # =========================
   - name: bike4you-inventory
     type: web
     env: docker
@@ -29,17 +37,17 @@ services:
     region: frankfurt
     envVars:
       - key: DATABASE_URL
-        value: sqlite:////data/inventory.db
+        fromDatabase:
+          name: bike4you-postgres
+          property: connectionString
       - key: SECRET_KEY
-        value: bike4you-super-secret-jwt-key
-    disks:
-      - name: invdisk
-        mountPath: /data
-        sizeGB: 1
+        fromService:
+          name: bike4you-auth
+          envVarKey: SECRET_KEY
 
-  # -------------------------
+  # =========================
   # RENTAL SERVICE
-  # -------------------------
+  # =========================
   - name: bike4you-rental
     type: web
     env: docker
@@ -48,19 +56,19 @@ services:
     region: frankfurt
     envVars:
       - key: DATABASE_URL
-        value: sqlite:////data/rental.db
-      - key: SECRET_KEY
-        value: bike4you-super-secret-jwt-key
-      - key: INVENTORY_SERVICE_URL
+        fromDatabase:
+          name: bike4you-postgres
+          property: connectionString
+      - key: INVENTORY_URL
         value: https://bike4you-inventory.onrender.com
-    disks:
-      - name: rentaldisk
-        mountPath: /data
-        sizeGB: 1
+      - key: SECRET_KEY
+        fromService:
+          name: bike4you-auth
+          envVarKey: SECRET_KEY
 
-  # -------------------------
+  # =========================
   # FRONTEND
-  # -------------------------
+  # =========================
   - name: bike4you-frontend
     type: static
     rootDir: frontend/bike4you-frontend

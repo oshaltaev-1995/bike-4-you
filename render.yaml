@@ -1,17 +1,7 @@
 services:
-  # =========================
-  # POSTGRES DATABASE
-  # =========================
-  - name: bike4you-postgres
-    type: pserv
-    plan: free
-    region: frankfurt
-    databaseName: bike4you
-    user: bike4you
-
-  # =========================
+  # -------------------------
   # AUTH SERVICE
-  # =========================
+  # -------------------------
   - name: bike4you-auth
     type: web
     env: docker
@@ -20,15 +10,17 @@ services:
     region: frankfurt
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: bike4you-postgres
-          property: connectionString
+        value: sqlite:////data/auth.db
       - key: SECRET_KEY
-        generateValue: true
+        value: SUPER_SECRET_KEY_CHANGE_ME
+    disks:
+      - name: authdisk
+        mountPath: /data
+        sizeGB: 1
 
-  # =========================
+  # -------------------------
   # INVENTORY SERVICE
-  # =========================
+  # -------------------------
   - name: bike4you-inventory
     type: web
     env: docker
@@ -37,17 +29,17 @@ services:
     region: frankfurt
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: bike4you-postgres
-          property: connectionString
+        value: sqlite:////data/inventory.db
       - key: SECRET_KEY
-        fromService:
-          name: bike4you-auth
-          envVarKey: SECRET_KEY
+        value: SUPER_SECRET_KEY_CHANGE_ME
+    disks:
+      - name: invdisk
+        mountPath: /data
+        sizeGB: 1
 
-  # =========================
+  # -------------------------
   # RENTAL SERVICE
-  # =========================
+  # -------------------------
   - name: bike4you-rental
     type: web
     env: docker
@@ -56,29 +48,12 @@ services:
     region: frankfurt
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: bike4you-postgres
-          property: connectionString
+        value: sqlite:////data/rental.db
       - key: INVENTORY_URL
         value: https://bike4you-inventory.onrender.com
       - key: SECRET_KEY
-        fromService:
-          name: bike4you-auth
-          envVarKey: SECRET_KEY
-
-  # =========================
-  # FRONTEND
-  # =========================
-  - name: bike4you-frontend
-    type: static_site
-    rootDir: frontend/bike4you-frontend
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist/bike4you-frontend
-    envVars:
-      - key: AUTH_API
-        value: https://bike4you-auth.onrender.com
-      - key: INVENTORY_API
-        value: https://bike4you-inventory.onrender.com
-      - key: RENTAL_API
-        value: https://bike4you-rental.onrender.com
-
+        value: SUPER_SECRET_KEY_CHANGE_ME
+    disks:
+      - name: rentaldisk
+        mountPath: /data
+        sizeGB: 1

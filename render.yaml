@@ -7,7 +7,7 @@ services:
     env: docker
     rootDir: auth-service
     plan: free
-    region: frankfurt
+    region: oregon
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -24,7 +24,7 @@ services:
     env: docker
     rootDir: inventory-service
     plan: free
-    region: frankfurt
+    region: oregon
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -41,7 +41,7 @@ services:
     env: docker
     rootDir: rental-service
     plan: free
-    region: frankfurt
+    region: oregon
     envVars:
       - key: DATABASE_URL
         fromDatabase:

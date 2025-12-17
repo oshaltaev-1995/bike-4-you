@@ -1,7 +1,7 @@
 services:
-  # -------------------------
+  # =========================
   # AUTH SERVICE
-  # -------------------------
+  # =========================
   - name: bike4you-auth
     type: web
     env: docker
@@ -10,17 +10,15 @@ services:
     region: frankfurt
     envVars:
       - key: DATABASE_URL
-        value: sqlite:////data/auth.db
+        fromDatabase:
+          name: bike4you-db
+          property: connectionString
       - key: SECRET_KEY
         value: SUPER_SECRET_KEY_CHANGE_ME
-    disks:
-      - name: authdisk
-        mountPath: /data
-        sizeGB: 1
 
-  # -------------------------
+  # =========================
   # INVENTORY SERVICE
-  # -------------------------
+  # =========================
   - name: bike4you-inventory
     type: web
     env: docker
@@ -29,17 +27,15 @@ services:
     region: frankfurt
     envVars:
       - key: DATABASE_URL
-        value: sqlite:////data/inventory.db
+        fromDatabase:
+          name: bike4you-db
+          property: connectionString
       - key: SECRET_KEY
         value: SUPER_SECRET_KEY_CHANGE_ME
-    disks:
-      - name: invdisk
-        mountPath: /data
-        sizeGB: 1
 
-  # -------------------------
+  # =========================
   # RENTAL SERVICE
-  # -------------------------
+  # =========================
   - name: bike4you-rental
     type: web
     env: docker
@@ -48,12 +44,10 @@ services:
     region: frankfurt
     envVars:
       - key: DATABASE_URL
-        value: sqlite:////data/rental.db
+        fromDatabase:
+          name: bike4you-db
+          property: connectionString
       - key: INVENTORY_URL
         value: https://bike4you-inventory.onrender.com
       - key: SECRET_KEY
         value: SUPER_SECRET_KEY_CHANGE_ME
-    disks:
-      - name: rentaldisk
-        mountPath: /data
-        sizeGB: 1

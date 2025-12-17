@@ -70,7 +70,7 @@ services:
   # FRONTEND
   # =========================
   - name: bike4you-frontend
-    type: static
+    type: static_site
     rootDir: frontend/bike4you-frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist/bike4you-frontend
@@ -81,3 +81,4 @@ services:
         value: https://bike4you-inventory.onrender.com
       - key: RENTAL_API
         value: https://bike4you-rental.onrender.com
+

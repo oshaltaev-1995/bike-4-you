@@ -5,6 +5,28 @@ The system provides basic functionality for a bike rental service, including use
 
 The project demonstrates backend microservices, frontend integration, REST APIs, and cloud deployment.
 
+To run backend locally:
+
+docker compose up --build
+
+Swagger:
+auth-service => http://localhost:8001/docs
+inventory-service => http://localhost:8002/docs
+rental-service => http://localhost:8003/docs
+
+Frontend:
+
+cd frontend/bike4you-frontend
+ng serve
+http://localhost:4200/
+
+Render deploy:
+https://bike4you-auth.onrender.com/docs
+https://bike4you-inventory.onrender.com/docs
+https://bike4you-rental.onrender.com/docs
+https://bike-4-you-1.onrender.com/
+
+
 ---
 
 ## Project Overview

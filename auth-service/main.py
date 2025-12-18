@@ -11,9 +11,9 @@ import schemas
 from database import Base, engine
 from deps import get_db
 
-# --------------------------
+# =========================
 # APP INIT
-# --------------------------
+# =========================
 
 app = FastAPI(
     title="Bike4You AuthService",
@@ -23,9 +23,9 @@ app = FastAPI(
 
 Base.metadata.create_all(bind=engine)
 
-# --------------------------
+# =========================
 # CONFIG
-# --------------------------
+# =========================
 
 SECRET_KEY = os.getenv("SECRET_KEY", "SUPER_SECRET_KEY_CHANGE_ME")
 ALGORITHM = "HS256"
@@ -34,39 +34,36 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 KAMK_DOMAIN = "@kamk.fi"
 
-# --------------------------
-# CORS
-# --------------------------
+# =========================
+# CORS (🔥 FIXED 🔥)
+# =========================
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        # local frontend
+        # local dev
         "http://localhost:4200",
         "http://127.0.0.1:4200",
 
-        # render frontend
-        "https://bike4you-frontend.onrender.com",
-
-        # render backends (swagger + inter-service safety)
-        "https://bike4you-auth.onrender.com",
-        "https://bike4you-inventory.onrender.com",
-        "https://bike4you-rental.onrender.com",
+        # ✅ ACTUAL Render frontend domain
+        "https://bike-4-you-1.onrender.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --------------------------
+# =========================
 # HELPERS
-# --------------------------
+# =========================
 
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
+
 def verify_password(password: str, hashed: str) -> bool:
     return pwd_context.verify(password, hashed)
+
 
 def create_access_token(user_id: int, role: str) -> str:
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -77,9 +74,9 @@ def create_access_token(user_id: int, role: str) -> str:
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
-# --------------------------
+# =========================
 # ENDPOINTS
-# --------------------------
+# =========================
 
 @app.post("/auth/register", response_model=schemas.Token)
 def register(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
@@ -148,21 +145,5 @@ def get_me(token: str, db: Session = Depends(get_db)):
 
     if not user:
         raise HTTPException(404, "User not found")
-
-    return user
-
-
-@app.post("/auth/make-admin/{user_id}", response_model=schemas.UserOut)
-def make_admin(user_id: int, db: Session = Depends(get_db)):
-
-    user = db.query(models.User).filter(
-        models.User.id == user_id
-    ).first()
-    if not user:
-        raise HTTPException(404, "User not found")
-
-    user.role = "admin"
-    db.commit()
-    db.refresh(user)
 
     return user
